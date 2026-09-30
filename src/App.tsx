@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import { deleteDoc, doc } from 'firebase/firestore';
+import { db } from './firebase';
 import { useAuth } from './hooks/useAuth';
 import { useRecipes } from './hooks/useRecipes';
 import RecipeForm from './components/RecipeForm';
 import RecipeDetail from './components/RecipeDetail';
 import ImportPanel from './components/ImportPanel';
+import { dataToForm } from './utils/recipeData';
 import type { FormValues } from './config/recipeFields';
 
 type Mode = 'idle' | 'add' | 'import' | 'review';
@@ -14,15 +17,23 @@ export default function App() {
   const [mode, setMode] = useState<Mode>('idle');
   const [imported, setImported] = useState<FormValues | undefined>();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // UI convenience only. The real protection is the Firestore rules.
   const isOwner = !!user && user.uid === import.meta.env.VITE_OWNER_UID;
 
   const selected = recipes.find((r) => r.id === selectedId) ?? null;
+  const editingRecipe = recipes.find((r) => r.id === editingId) ?? null;
 
   const closePanel = () => {
     setMode('idle');
     setImported(undefined);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this recipe? This cannot be undone.')) return;
+    await deleteDoc(doc(db, 'recipes', id));
+    setSelectedId(null);
   };
 
   return (
@@ -48,8 +59,20 @@ export default function App() {
           )}
         </div>
 
-        {selected ? (
-          <RecipeDetail recipe={selected} onBack={() => setSelectedId(null)} />
+        {editingRecipe ? (
+          <RecipeForm
+            recipeId={editingRecipe.id}
+            initial={dataToForm(editingRecipe)}
+            onDone={() => setEditingId(null)}
+          />
+        ) : selected ? (
+          <RecipeDetail
+            recipe={selected}
+            onBack={() => setSelectedId(null)}
+            isOwner={isOwner}
+            onEdit={() => setEditingId(selected.id)}
+            onDelete={() => handleDelete(selected.id)}
+          />
         ) : (
           <>
             <div className="flex items-center justify-between mb-3">

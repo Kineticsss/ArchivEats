@@ -31,3 +31,5 @@ dist-ssr
 # Firebase CLI
 .firebase/
 firebase-debug.log*
+
+Thumbs.db

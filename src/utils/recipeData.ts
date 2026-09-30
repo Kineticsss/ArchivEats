@@ -1,28 +1,29 @@
 import {
   FIELDS,
+  fieldVisible,
   type FormValues,
   type Recipe,
   type RecipeData,
 } from '../config/recipeFields';
 
-// "a\nb\n\nc" becomes ['a', 'b', 'c']
 export const toLines = (text: string) =>
   text
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean);
 
-// Form values -> what we save to Firestore
+// Form values -> what we save to Firestore.
+// A field hidden by dependsOn (e.g. Variant Category when Authenticity
+// isn't "Variant") is saved as empty, even if it still holds an old value.
 export function formToData(form: FormValues): RecipeData {
   const out: Record<string, string | string[]> = {};
   for (const f of FIELDS) {
-    out[f.key] = f.type === 'list' ? toLines(form[f.key]) : form[f.key].trim();
+    const raw = fieldVisible(f, form) ? form[f.key] : '';
+    out[f.key] = f.type === 'list' ? toLines(raw) : raw.trim();
   }
   return out as RecipeData;
 }
 
-// A Firestore document -> a Recipe the UI can trust,
-// even if the document is missing fields (older recipes, hand-made ones).
 export function normalizeRecipe(id: string, data: Record<string, unknown>): Recipe {
   const out: Record<string, string | string[]> = { id };
   for (const f of FIELDS) {
@@ -35,4 +36,15 @@ export function normalizeRecipe(id: string, data: Record<string, unknown>): Reci
   }
   if (!out.name) out.name = 'Untitled';
   return out as Recipe;
+}
+
+// A saved Recipe -> form values, for pre-filling the edit form.
+// List fields go back to one item per line; everything else is already a string.
+export function dataToForm(recipe: Recipe): FormValues {
+  const out: Record<string, string> = {};
+  for (const f of FIELDS) {
+    const value = recipe[f.key];
+    out[f.key] = Array.isArray(value) ? value.join('\n') : value;
+  }
+  return out as FormValues;
 }

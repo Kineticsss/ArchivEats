@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FIELDS, type Recipe } from '../config/recipeFields';
+import { FIELDS, isInline, type Recipe } from '../config/recipeFields';
 
 // These two are shown as the page heading, not in the details row.
 const HEADER_KEYS = ['name', 'category'];
@@ -18,17 +18,26 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 export default function RecipeDetail({
   recipe: r,
   onBack,
+  isOwner,
+  onEdit,
+  onDelete,
 }: {
   recipe: Recipe;
   onBack: () => void;
+  isOwner: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   const facts = FIELDS.filter(
-    (f) => f.type === 'short' && !HEADER_KEYS.includes(f.key),
+    (f) =>
+      isInline(f.type) &&
+      !HEADER_KEYS.includes(f.key) &&
+      (!f.dependsOn || r[f.dependsOn.key as keyof Recipe] === f.dependsOn.equals),
   )
     .map((f) => ({ label: f.label, value: r[f.key] as string }))
     .filter((fact) => fact.value);
 
-  const sections = FIELDS.filter((f) => f.type !== 'short');
+  const sections = FIELDS.filter((f) => !isInline(f.type));
 
   return (
     <div>
@@ -41,6 +50,22 @@ export default function RecipeDetail({
 
       <h2 className="text-2xl font-bold">{r.name}</h2>
       {r.category && <p className="text-neutral-400">{r.category}</p>}
+            {isOwner && (
+        <div className="mt-3 flex gap-3">
+          <button
+            onClick={onEdit}
+            className="text-sm text-orange-400 hover:underline"
+          >
+            Edit
+          </button>
+          <button
+            onClick={onDelete}
+            className="text-sm text-red-400 hover:underline"
+          >
+            Delete
+          </button>
+        </div>
+      )}
 
       {facts.length > 0 && (
         <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">

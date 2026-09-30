@@ -1,6 +1,7 @@
 import {
   FIELDS,
   emptyForm,
+  isInline,
   type FieldDef,
   type FieldKey,
   type FormValues,
@@ -8,7 +9,6 @@ import {
 
 const normalize = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
 
-// Every header we accept (label + aliases) -> the field it fills
 const HEADERS = new Map<string, FieldDef<FieldKey>>();
 for (const f of FIELDS) {
   for (const name of [f.label, ...(f.aliases ?? [])]) {
@@ -16,11 +16,10 @@ for (const f of FIELDS) {
   }
 }
 
-// The doc template, generated from the field config
 export function buildTemplate(): string {
   const out: string[] = [];
   for (const f of FIELDS) {
-    if (f.type === 'short') {
+    if (isInline(f.type)) {
       out.push(`${f.label}: ${f.example}`);
       continue;
     }
@@ -34,7 +33,6 @@ export function buildTemplate(): string {
   return out.join('\n');
 }
 
-// Removes bullets ("- ", "* ", "• ", "● ") and numbering ("1. ", "1) ") from a line
 const stripMarker = (line: string) =>
   line
     .replace(/^[-*•●○■▪◦‣–—]\s*/, '')
@@ -54,9 +52,8 @@ export function parseRecipeText(raw: string): FormValues {
     const text = line.trim();
     if (!text) continue;
 
-    // A heading on its own line, with no colon ("Ingredients")
     const bare = HEADERS.get(normalize(text));
-    if (bare && bare.type !== 'short') {
+    if (bare && !isInline(bare.type)) {
       current = bare;
       continue;
     }
@@ -66,11 +63,10 @@ export function parseRecipeText(raw: string): FormValues {
 
     if (match && field) {
       const rest = match[2].trim();
-      if (field.type === 'short' && rest) {
+      if (isInline(field.type) && rest) {
         values[field.key] = rest;
         current = null;
       } else {
-        // A section header, or a one-line field whose value is on the next line
         current = field;
         if (rest) push(field, rest);
       }
@@ -82,7 +78,7 @@ export function parseRecipeText(raw: string): FormValues {
 
   for (const f of FIELDS) {
     const lines = collected[f.key];
-    if (lines) values[f.key] = lines.join(f.type === 'short' ? ' ' : '\n');
+    if (lines) values[f.key] = lines.join(isInline(f.type) ? ' ' : '\n');
   }
   return values;
 }
